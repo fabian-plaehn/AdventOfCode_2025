@@ -1,5 +1,3 @@
-use core::num;
-
 pub fn get_rotations(number: i32, rotation: i32, left: i32, right: i32) -> i32 {
     // expects left to be 0 and the counting number to be 0 as well
     let interval = right - left + 1;

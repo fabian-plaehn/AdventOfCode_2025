@@ -1,6 +1,5 @@
-use std::collections::btree_map::Range;
-
 use mt_logger::*;
+use std::convert::TryFrom;
 
 #[derive(Debug)]
 struct Field(Vec<Vec<char>>);
@@ -27,7 +26,7 @@ impl Field {
 }
 
 fn main() {
-    mt_new!(None, Level::Debug, OutputStream::StdOut, true);
+    mt_new!(None, Level::Info, OutputStream::StdOut, true);
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         mt_log!(Level::Error, "Usage: {} <filename>", args[0]);
@@ -36,14 +35,19 @@ fn main() {
     }
     let filename = &args[1];
     let filecontent = std::fs::read_to_string(filename).expect("Error reading file");
-    // parse string
+
     let field: Vec<Vec<char>> = Field::from_string(&filecontent).0;
-    let result = task_1(field, '@');
-    mt_log!(Level::Info, "Result: {}", result);
+
+    let (_, result) = task_1(field.clone(), '@');
+    mt_log!(Level::Info, "Result Part 1: {}", result);
+
+    let (_, result) = task_2(field, '@');
+    mt_log!(Level::Info, "Result Part 2: {}", result);
+
     mt_flush!().unwrap();
 }
 
-fn get_adjacent_indexes(
+fn get_adjacent_indices(
     index: (usize, usize),
     max_row: isize,
     max_col: isize,
@@ -52,8 +56,8 @@ fn get_adjacent_indexes(
     let mut a_indexes: Vec<(usize, usize)> = Vec::new();
     for i in -1isize..2 {
         for j in -1isize..2 {
-            let new_row: isize = row as isize + i;
-            let new_col: isize = col as isize + j;
+            let new_row: isize = isize::try_from(row).expect("couldnt fit row into isize") + i;
+            let new_col: isize = isize::try_from(col).expect("couldnt fit col into isize") + j;
             if !(0 <= new_row && new_row < max_row && 0 <= new_col && new_col < max_col)
                 || (new_row == row as isize && new_col == col as isize)
             {
@@ -66,7 +70,7 @@ fn get_adjacent_indexes(
 }
 
 fn find_number_neighbours(
-    field: &Vec<Vec<char>>,
+    field: &[Vec<char>],
     object: char,
     index: (usize, usize),
     max_row: isize,
@@ -75,7 +79,7 @@ fn find_number_neighbours(
     let (row, col) = index;
     let mut count = 0;
     // loop through neighbouhrs
-    let a_index: Vec<(usize, usize)> = get_adjacent_indexes((row, col), max_row, max_col);
+    let a_index: Vec<(usize, usize)> = get_adjacent_indices((row, col), max_row, max_col);
     mt_log!(
         Level::Debug,
         "Index {},{} has a_index: {:?}",
@@ -91,7 +95,7 @@ fn find_number_neighbours(
     count
 }
 
-fn task_1(field: Vec<Vec<char>>, object: char) -> i32 {
+fn task_1(field: Vec<Vec<char>>, object: char) -> (Vec<Vec<char>>, i32) {
     let mut count = 0;
     let max_row = field.len();
     let max_col = field[0].len();
@@ -115,7 +119,20 @@ fn task_1(field: Vec<Vec<char>>, object: char) -> i32 {
             }
         }
     }
-    std::fs::write("output.txt", Field::to_string(Field(result_field)))
+    std::fs::write("output.txt", Field::to_string(Field(result_field.clone())))
         .expect("Error writing file");
-    count
+    (result_field, count)
+}
+
+fn task_2(mut field: Vec<Vec<char>>, object: char) -> (Vec<Vec<char>>, i32) {
+    let mut count = 0;
+    let mut result;
+    loop {
+        (field, result) = task_1(field, object);
+        if result == 0 {
+            break;
+        }
+        count += result;
+    }
+    (field, count)
 }

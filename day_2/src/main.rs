@@ -1,5 +1,3 @@
-use std::i64;
-
 #[derive(Debug)]
 struct Interval {
     start: i64,
@@ -14,10 +12,10 @@ impl Interval {
                 Interval {
                     start: range[0]
                         .parse::<i64>()
-                        .unwrap_or_else(|err| panic!("Error parsing {}", range[0])),
+                        .unwrap_or_else(|_| panic!("Error parsing {}", range[0])),
                     end: range[1]
                         .parse::<i64>()
-                        .unwrap_or_else(|err| panic!("Error parsing {}", range[1])),
+                        .unwrap_or_else(|_| panic!("Error parsing {}", range[1])),
                 }
             })
             .collect::<Vec<Interval>>()

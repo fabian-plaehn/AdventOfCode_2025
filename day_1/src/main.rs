@@ -5,10 +5,9 @@
 // 0 + L1 -> 99
 
 // Password: num of dial points visited at 0
-
-use core::num;
 use std::fs;
 
+#[allow(unused_imports)]
 use utils::{get_rotations, get_rotations_number, map_number};
 
 #[derive(PartialEq)]
