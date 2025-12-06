@@ -44,3 +44,37 @@ pub fn map_number(number: i32, left: i32, right: i32) -> i32 {
     }
     position
 }
+
+pub fn filter_non_relevant_chars(s: &str) -> Vec<String> {
+    let mut result: Vec<String> = Vec::new();
+    let mut current_s: Vec<char> = Vec::new();
+    for c in s.chars() {
+        match c {
+            '\n' => {
+                if !current_s.is_empty() {
+                    result.push(current_s.into_iter().collect());
+                    current_s = Vec::new();
+                }
+            }
+            '\r' => {
+                if !current_s.is_empty() {
+                    result.push(current_s.into_iter().collect());
+                    current_s = Vec::new();
+                }
+            }
+            ' ' => {
+                if !current_s.is_empty() {
+                    result.push(current_s.into_iter().collect());
+                    current_s = Vec::new();
+                }
+            }
+            _ => {
+                current_s.push(c);
+            }
+        };
+    }
+    if !current_s.is_empty() {
+        result.push(current_s.into_iter().collect());
+    }
+    result
+}
