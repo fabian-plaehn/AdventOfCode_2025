@@ -78,3 +78,17 @@ pub fn filter_non_relevant_chars(s: &str) -> Vec<String> {
     }
     result
 }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Point3D {
+    pub position: (f64, f64, f64),
+}
+
+impl Point3D {
+    pub fn distance(&self, another: &Point3D) -> f64 {
+        ((self.position.0 - another.position.0).powf(2.0)
+            + (self.position.1 - another.position.1).powf(2.0)
+            + (self.position.2 - another.position.2).powf(2.0))
+        .powf(0.5)
+    }
+}
