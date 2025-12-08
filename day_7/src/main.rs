@@ -1,4 +1,5 @@
 use mt_logger::*;
+use std::{collections::HashMap, mem};
 
 #[derive(Debug, Clone, Copy)]
 struct Start {
@@ -23,6 +24,7 @@ enum Objects {
     Start(Start),
     Splitter(Splitter),
     Beam(Beam),
+    None,
 }
 
 #[derive(Debug)]
@@ -32,7 +34,9 @@ struct TachyonManifold {
     splitters: Vec<usize>,
     beams: Vec<usize>,
     max_y: usize,
+    max_x: usize,
     open_beams: Vec<usize>,
+    field: Vec<Vec<Objects>>,
 }
 
 impl TachyonManifold {
@@ -40,6 +44,12 @@ impl TachyonManifold {
         let mut objects: Vec<Objects> = Vec::new();
         let mut start: usize = 0;
         let mut splitters: Vec<usize> = Vec::new();
+
+        let max_y = s.lines().count();
+        let max_x = s.lines().next().unwrap().chars().count();
+
+        let mut field: Vec<Vec<Objects>> = vec![vec![Objects::None; max_y]; max_x];
+
         for (y, line) in s.lines().enumerate() {
             for (x, c) in line.chars().enumerate() {
                 if c == 'S' {
@@ -48,6 +58,10 @@ impl TachyonManifold {
                         child: None,
                     }));
                     start = objects.len() - 1;
+                    field[x][y] = Objects::Start(Start {
+                        position: (x, y),
+                        child: None,
+                    })
                 } else if c == '^' {
                     objects.push(Objects::Splitter(Splitter {
                         position: (x, y),
@@ -56,6 +70,12 @@ impl TachyonManifold {
                         child_right: None,
                     }));
                     splitters.push(objects.len() - 1);
+                    field[x][y] = Objects::Splitter(Splitter {
+                        position: (x, y),
+                        hit: false,
+                        child_left: None,
+                        child_right: None,
+                    })
                 }
             }
         }
@@ -64,14 +84,16 @@ impl TachyonManifold {
             start,
             splitters,
             beams: Vec::new(),
-            max_y: s.lines().count(),
+            max_y,
+            max_x,
             open_beams: Vec::new(),
+            field,
         }
     }
 
-    fn get_spitters(&self) -> Vec<Splitter> {
+    fn get_spitters(&mut self) -> Vec<Splitter> {
         self.splitters
-            .iter()
+            .iter_mut()
             .map(|splitter_index| {
                 let Objects::Splitter(splitter) = self.objects[*splitter_index] else {
                     panic!();
@@ -94,8 +116,6 @@ impl TachyonManifold {
     }
 
     fn simulate(&mut self) {
-        let mut count = 0;
-        let mut created_beams = 0;
         let Objects::Start(start) = &self.objects[self.start] else {
             mt_log!(
                 Level::Error,
@@ -125,32 +145,74 @@ impl TachyonManifold {
                 mt_log!(Level::Debug, "Beam hit bottom");
                 continue;
             }
-            if let Some(splitter) = self
-                .get_spitters()
+            let splitter_index = self
+                .objects
                 .iter()
-                .find(|s| s.position == new_position)
-            {
-                mt_log!(Level::Debug, "Splitter got hit at {:?}", new_position);
-                count += 1;
+                .position(|o| matches!(o, Objects::Splitter(s) if s.position == new_position));
 
-                self.create_beam((splitter.position.0 - 1, splitter.position.1), beam_index);
-                self.create_beam((splitter.position.0 + 1, splitter.position.1), beam_index);
+            if let Some(idx) = splitter_index {
+                let (x, y) = {
+                    let splitter = match &mut self.objects[idx] {
+                        Objects::Splitter(s) => s,
+                        _ => unreachable!(),
+                    };
+
+                    mt_log!(Level::Debug, "Splitter got hit at {:?}", new_position);
+                    splitter.hit = true;
+                    (splitter.position.0, splitter.position.1)
+                };
+                self.create_beam((x - 1, y), beam_index);
+                self.create_beam((x + 1, y), beam_index);
             } else {
                 self.create_beam(new_position, beam_index);
             }
         }
+
+        let count = self.get_spitters().iter().filter(|s| s.hit).count();
         mt_log!(Level::Info, "Result Part 1: {}", count);
     }
 
-    fn create_beam(&mut self, new_position: (usize, usize), parent_index: usize) -> usize {
-        // check if beam already exists
+    fn count_routes(
+        &mut self,
+        position: (usize, usize),
+        memo: &mut HashMap<(usize, usize), usize>,
+    ) -> usize {
+        let (x, y) = position;
+        if let Some(v) = memo.get(&position) {
+            return *v;
+        }
+        mt_log!(Level::Debug, "{}", memo.capacity());
+        if y == self.max_y {
+            return 1;
+        }
+
+        match self.field[x][y] {
+            Objects::Splitter(_) => {
+                let (mut left, mut right) = (0, 0);
+                if x > 0 {
+                    left = self.count_routes((x - 1, y), memo);
+                }
+                if x < self.max_x {
+                    right = self.count_routes((x + 1, y), memo);
+                }
+                memo.insert(position, left + right);
+                left + right
+            }
+            _ => {
+                let value = self.count_routes((x, y + 1), memo);
+                memo.insert(position, value);
+                value
+            }
+        }
+    }
+    fn create_beam(&mut self, new_position: (usize, usize), parent_index: usize) {
         if self
             .get_beams()
             .iter()
             .any(|beam| beam.position == new_position)
         {
             mt_log!(Level::Debug, "Beam @ {:?} already exsits", new_position);
-            return 0;
+            return;
         }
         let new_beam = Objects::Beam(Beam {
             position: new_position,
@@ -166,12 +228,11 @@ impl TachyonManifold {
             panic!();
         };
         beam.child = Some(new_child_index);
-        1
     }
 }
 
 fn main() {
-    mt_new!(None, Level::Debug, OutputStream::StdOut, true);
+    mt_new!(None, Level::Info, OutputStream::StdOut, true);
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         mt_log!(Level::Error, "Usage {} <inputfile.txt>", args[0]);
@@ -183,5 +244,21 @@ fn main() {
     let mut tachyon_manifold = TachyonManifold::from_string(&filecontent);
     mt_log!(Level::Debug, "{:?}", tachyon_manifold);
     tachyon_manifold.simulate();
+
+    // Own Idea was to simulate - allow "double beams" and count beams with y=max_y at the end but that took way too long
+    // Unfortunatly i got this idea when i looked on reddit for ideas - i was tired
+    let start_position = match tachyon_manifold
+        .objects
+        .get(tachyon_manifold.start)
+        .unwrap()
+    {
+        Objects::Start(s) => s.position,
+        _ => panic!(),
+    };
+    mt_log!(
+        Level::Info,
+        "Result Part 2: {}",
+        tachyon_manifold.count_routes(start_position, &mut HashMap::new())
+    );
     mt_flush!().unwrap();
 }
