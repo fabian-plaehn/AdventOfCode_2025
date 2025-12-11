@@ -1,0 +1,10 @@
+[package]
+name = "day_10"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+mt_logger = { git = "https://github.com/fabian-plaehn/mt_logger.git", branch = "my-branch" }
+utils = { path = "../utils" }
+good_lp = "1.7"
+lp-modeler = "0.5"

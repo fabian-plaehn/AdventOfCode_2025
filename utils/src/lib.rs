@@ -92,3 +92,11 @@ impl Point3D {
         .powf(0.5)
     }
 }
+
+pub fn create_vector_from_tuple_string(s: &str) -> Vec<usize> {
+    let result = s
+        .split(',')
+        .map(|c| c.parse::<usize>().unwrap())
+        .collect::<Vec<usize>>();
+    result.clone()
+}
